@@ -90,10 +90,13 @@ function PosterBoard() {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this comment?')) return
 
-        const { error } = await supabase.from('pins').delete().eq('id', id)
+        const { error, data } = await supabase.from('pins').delete().eq('id', id).select()
+
         if (error) {
             alert('Failed to delete')
             console.error(error)
+        } else if (!data || data.length === 0) {
+            alert('削除に失敗しました。\nSupabaseのSQLエディタで削除ポリシーを実行してください。\n(Failed to delete. Please run the DELETE policy in Supabase SQL Editor.)')
         } else {
             setPins(prev => prev.filter(p => p.id !== id))
             if (selectedPin?.id === id) setSelectedPin(null)
