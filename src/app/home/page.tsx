@@ -7,10 +7,25 @@ import { PinList } from '@/components/PinList'
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-    const { data: pins } = await supabase
+    let pins = []
+
+    // First try with replies count
+    const { data: pinsWithReplies, error } = await supabase
         .from('pins')
-        .select('*')
+        .select('*, replies(count)')
         .order('created_at', { ascending: false })
+
+    if (!error && pinsWithReplies) {
+        pins = pinsWithReplies
+    } else {
+        // Fallback: If replies table doesn't exist or other error, fetch just pins
+        console.warn('Error fetching replies (likely table missing), falling back to basic pin fetch:', error)
+        const { data: basicPins } = await supabase
+            .from('pins')
+            .select('*')
+            .order('created_at', { ascending: false })
+        pins = basicPins || []
+    }
 
     return (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px' }}>

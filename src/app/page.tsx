@@ -6,6 +6,7 @@ import { TransformWrapper, TransformComponent, ReactZoomPanPinchContentRef } fro
 import { Plus, List } from 'lucide-react'
 import { supabase, Pin } from '@/lib/supabase'
 import { Modal } from '@/components/Modal'
+import { PinDetail } from '@/components/PinDetail'
 import { PinMarker } from '@/components/PinMarker'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -128,9 +129,9 @@ export default function Page() {
         if (!isPlacing) return
 
         const rect = e.currentTarget.getBoundingClientRect()
-        // Calculate relative to the rendering box
-        const x = e.nativeEvent.offsetX / rect.width
-        const y = e.nativeEvent.offsetY / rect.height
+        // Calculate relative to the rendering box using client coordinates for zoom safety
+        const x = (e.clientX - rect.left) / rect.width
+        const y = (e.clientY - rect.top) / rect.height
 
         setPendingLoc({ x, y })
         setModalOpen(true)
@@ -288,7 +289,7 @@ export default function Page() {
                             )}
 
                             {pins.map((pin) => (
-                                <div key={pin.id} id={`pin-${pin.id}`} style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0 }}>
+                                <div key={pin.id} id={`pin-${pin.id}`} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
                                     <PinMarker
                                         x={pin.x}
                                         y={pin.y}
@@ -315,23 +316,11 @@ export default function Page() {
 
             {/* Selected Pin Detail View */}
             {selectedPin && (
-                <div className="modal-overlay" onClick={() => setSelectedPin(null)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem' }}>Comment by {selectedPin.author_name}</h3>
-                        <p style={{ margin: '0 0 16px 0', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{selectedPin.body}</p>
-                        <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '16px' }}>
-                            {new Date(selectedPin.created_at).toLocaleString()}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                            <button className="btn" style={{ background: '#e5e5e5', color: 'black' }} onClick={() => setSelectedPin(null)}>
-                                Close
-                            </button>
-                            <button className="btn" style={{ background: '#ef4444', color: 'white' }} onClick={() => handleDelete(selectedPin.id)}>
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <PinDetail
+                    pin={selectedPin}
+                    onClose={() => setSelectedPin(null)}
+                    onDelete={handleDelete}
+                />
             )}
         </main>
     )

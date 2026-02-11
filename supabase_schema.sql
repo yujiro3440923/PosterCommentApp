@@ -23,6 +23,23 @@ CREATE POLICY "Enable insert access for all users" ON pins
 CREATE POLICY "Enable delete access for all users" ON pins
   FOR DELETE USING (true);
 
+-- REPLIES TABLE
+CREATE TABLE IF NOT EXISTS replies (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  pin_id uuid REFERENCES pins(id) ON DELETE CASCADE NOT NULL,
+  author_name text,
+  body text NOT NULL CHECK (char_length(body) > 0 AND char_length(body) <= 300),
+  created_at timestamp WITH time zone DEFAULT now()
+);
+
+-- Enable RLS for replies
+ALTER TABLE replies ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for replies
+CREATE POLICY "Enable read access for all users" ON replies FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON replies FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable delete access for all users" ON replies FOR DELETE USING (true);
+
 -- STORAGE SETUP (Run this if you want persistent poster uploads)
 -- Note: You might need to enable the Storage extension in Supabase dashboard if this fails, 
 -- but usually 'storage' schema is available by default.

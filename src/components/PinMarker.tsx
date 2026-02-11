@@ -19,6 +19,7 @@ export function PinMarker({ x, y, isHighlighted, onClick, color = '#ef4444' }: P
             style={{
                 left: `${x * 100}%`,
                 top: `${y * 100}%`,
+                pointerEvents: 'auto'
             }}
             onClick={(e) => {
                 e.stopPropagation()

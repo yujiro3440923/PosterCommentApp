@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { supabase, Pin } from '@/lib/supabase'
 import Link from 'next/link'
-import { MapPin, Trash2 } from 'lucide-react'
+import { MapPin, Trash2, MessageCircle } from 'lucide-react'
 
 interface PinListProps {
     initialPins: Pin[]
@@ -44,6 +44,12 @@ export function PinList({ initialPins }: PinListProps) {
                             <span style={{ fontSize: '0.8rem', color: '#999' }}>
                                 {new Date(pin.created_at).toLocaleString()}
                             </span>
+                            {pin.replies && pin.replies[0]?.count > 0 && (
+                                <span style={{ fontSize: '0.8rem', color: '#0284c7', background: '#e0f2fe', padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <MessageCircle size={12} />
+                                    {pin.replies[0].count}
+                                </span>
+                            )}
                             <button
                                 onClick={() => handleDelete(pin.id)}
                                 style={{
