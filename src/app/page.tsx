@@ -11,6 +11,9 @@ import { PinMarker } from '@/components/PinMarker'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
+import { TeamAuthModal } from '@/components/TeamAuthModal'
+import { Eye, EyeOff } from 'lucide-react'
+
 function PosterBoard() {
     const [pins, setPins] = useState<Pin[]>([])
     const [isPlacing, setIsPlacing] = useState(false)
@@ -19,12 +22,45 @@ function PosterBoard() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [cooldown, setCooldown] = useState(false)
 
+    // New State for Features
+    const [showPins, setShowPins] = useState(true)
+    const [isTeamMember, setIsTeamMember] = useState(false)
+    const [authModalOpen, setAuthModalOpen] = useState(false)
+    const [pendingAction, setPendingAction] = useState<'list' | 'upload' | null>(null)
+    const fileInputRef = React.useRef<HTMLInputElement>(null)
+
     const transformRef = React.useRef<ReactZoomPanPinchContentRef>(null)
     const searchParams = useSearchParams()
     const highlightId = searchParams.get('pin')
 
     const [posterUrl, setPosterUrl] = useState('/poster.svg')
     const [isUploading, setIsUploading] = useState(false)
+
+    // Auth Handlers
+    const handleTeamAction = (action: 'list' | 'upload') => {
+        if (isTeamMember) {
+            executeAction(action)
+        } else {
+            setPendingAction(action)
+            setAuthModalOpen(true)
+        }
+    }
+
+    const executeAction = (action: 'list' | 'upload') => {
+        if (action === 'list') {
+            window.location.href = '/home'
+        } else if (action === 'upload') {
+            fileInputRef.current?.click()
+        }
+    }
+
+    const handleAuthenticated = () => {
+        setIsTeamMember(true)
+        if (pendingAction) {
+            executeAction(pendingAction)
+            setPendingAction(null)
+        }
+    }
 
     // Handle file upload
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +136,9 @@ function PosterBoard() {
         } else {
             setPins(prev => prev.filter(p => p.id !== id))
             if (selectedPin?.id === id) setSelectedPin(null)
+            if (highlightId === id) {
+                // clear param?
+            }
         }
     }
 
@@ -178,14 +217,51 @@ function PosterBoard() {
 
             {/* Top Bar / Controls */}
             <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 50, display: 'flex', gap: '10px' }}>
-                <Link href="/home" className="btn" style={{ background: 'white', color: 'black', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+                <button
+                    onClick={() => handleTeamAction('list')}
+                    className="btn"
+                    style={{ background: 'white', color: 'black', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
+                >
                     <List size={20} style={{ marginRight: 8 }} />
                     List
-                </Link>
+                </button>
+
+                <button
+                    onClick={() => setShowPins(!showPins)}
+                    className="btn"
+                    style={{ background: 'white', color: 'black', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
+                    title={showPins ? "Hide Pins" : "Show Pins"}
+                >
+                    {showPins ? <Eye size={20} style={{ marginRight: 8 }} /> : <EyeOff size={20} style={{ marginRight: 8 }} />}
+                    {showPins ? "Hide" : "Show"}
+                </button>
+
                 <label className="btn" style={{ background: 'white', color: 'black', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', cursor: isUploading ? 'wait' : 'pointer', opacity: isUploading ? 0.7 : 1 }}>
-                    <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} disabled={isUploading} />
-                    {isUploading ? 'Uploading...' : 'Upload Poster'}
+                    <span onClick={(e) => {
+                        e.preventDefault()
+                        handleTeamAction('upload')
+                    }}>
+                        {isUploading ? 'Uploading...' : 'Upload Poster'}
+                    </span>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        style={{ display: 'none' }}
+                        disabled={isUploading}
+                    />
                 </label>
+
+                {isTeamMember && (
+                    <div style={{
+                        background: '#dcfce7', color: '#166534', padding: '0 12px',
+                        borderRadius: 20, display: 'flex', alignItems: 'center', fontSize: '0.8rem', fontWeight: 600,
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                    }}>
+                        Team Mode
+                    </div>
+                )}
             </div>
 
             <div style={{ position: 'absolute', bottom: 30, right: 30, zIndex: 50 }}>
@@ -241,7 +317,7 @@ function PosterBoard() {
                                 <div style={{ position: 'absolute', inset: 0, cursor: 'crosshair', zIndex: 5, background: 'rgba(0,0,0,0.1)' }} />
                             )}
 
-                            {pins.map((pin) => (
+                            {showPins && pins.map((pin) => (
                                 <div key={pin.id} id={`pin-${pin.id}`} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
                                     <PinMarker
                                         x={pin.x}
@@ -265,6 +341,15 @@ function PosterBoard() {
                 isSubmitting={isSubmitting}
                 x={pendingLoc?.x || 0}
                 y={pendingLoc?.y || 0}
+            />
+
+            <TeamAuthModal
+                isOpen={authModalOpen}
+                onClose={() => {
+                    setAuthModalOpen(false)
+                    setPendingAction(null)
+                }}
+                onAuthenticated={handleAuthenticated}
             />
 
             {/* Selected Pin Detail View */}
