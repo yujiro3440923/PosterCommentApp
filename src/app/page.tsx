@@ -1,7 +1,7 @@
 
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, Suspense } from 'react'
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
 import { Plus, List } from 'lucide-react'
 import { supabase, Pin } from '@/lib/supabase'
@@ -11,7 +11,7 @@ import { PinMarker } from '@/components/PinMarker'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
-export default function Page() {
+function PosterBoard() {
     const [pins, setPins] = useState<Pin[]>([])
     const [isPlacing, setIsPlacing] = useState(false)
     const [modalOpen, setModalOpen] = useState(false)
@@ -34,28 +34,17 @@ export default function Page() {
         setIsUploading(true)
 
         try {
-            // Upload to Supabase Storage, overwriting 'current'
-            // We use a fixed name 'current' to ensure only one poster exists at a time (as requested)
-            // We detect extension to be safe, or just force .png/.jpg? 
-            // Let's just use 'current' and let the mime type handle it or just 'current_poster'
             const fileExt = file.name.split('.').pop()
             const fileName = `current_poster.${fileExt}`
 
-            // Remove old files first? Or just Overwrite. Upsert is supported.
             const { error: uploadError } = await supabase.storage
                 .from('posters')
                 .upload(fileName, file, { upsert: true })
 
             if (uploadError) throw uploadError
 
-            // Get Public URL
             const { data } = supabase.storage.from('posters').getPublicUrl(fileName)
-
-            // Add timestamp to bust cache
             setPosterUrl(`${data.publicUrl}?t=${Date.now()}`)
-
-            // Optimize: Save the filename to a DB? 
-            // For MVP, we'll iterate the bucket to find the 'current_poster' to load on init.
         } catch (error) {
             console.error('Upload failed:', error)
             alert('Upload failed. Please try again.')
@@ -66,15 +55,11 @@ export default function Page() {
 
     // Load initial data
     const loadData = useCallback(async () => {
-        // 1. Fetch Pins
         const { data: pinData } = await supabase.from('pins').select('*')
         if (pinData) setPins(pinData)
 
-        // 2. Fetch Poster
-        // List files in bucket to find the current one
         const { data: files } = await supabase.storage.from('posters').list()
         if (files && files.length > 0) {
-            // Sort by updated_at desc to get latest
             const sorted = files.sort((a, b) =>
                 new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
             )
@@ -92,10 +77,6 @@ export default function Page() {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pins' }, (payload) => {
                 setPins((prev) => [...prev, payload.new as Pin])
             })
-            // Listen for storage changes? Custom event? 
-            // Storage doesn't emit realtime events by default easily for public.
-            // We'll rely on refresh for other users for now, or maybe an interval?
-            // User requirement: "Until another is uploaded".
             .subscribe()
 
         return () => {
@@ -114,13 +95,8 @@ export default function Page() {
             alert('Failed to delete')
             console.error(error)
         } else {
-            // Optimistic update
             setPins(prev => prev.filter(p => p.id !== id))
             if (selectedPin?.id === id) setSelectedPin(null)
-            if (highlightId === id) {
-                // clear param?
-                // router.push('/') ? 
-            }
         }
     }
 
@@ -169,22 +145,6 @@ export default function Page() {
         if (highlightId && transformRef.current && pins.length > 0) {
             const pin = pins.find(p => p.id === highlightId)
             if (pin) {
-                // Calculate target position
-                // We want the pin at center.
-                // transformRef.current.instance.transformState gives current state.
-                // But easier: use zoomToImage? No, setTransform.
-                // We need the dimensions of the content.
-                // Since we don't track content size easily here without a ref to the image,
-                // we can assume the image is scaled to fit initially, but we entered with `centerOnInit`.
-                // Let's iterate: zoomToElement is easier IF the element is correctly placed.
-                // The user said "ViewLocation is off". This implies the pin placement might be slightly off due to size?
-                // The pin is 0x0 div with the icon centered?
-                // Let's use `zoomToElement` but ensure the target is the pin's anchor.
-                // Actually, `zoomToElement` centers the element in the view.
-                // If the pin div is width=0 height=0, it should be exact.
-
-                // Let's try explicit setTransform with retry.
-                // We can get the wrapper bounds.
                 setTimeout(() => {
                     if (!transformRef.current) return
                     const { wrapperComponent, contentComponent } = transformRef.current.instance
@@ -193,28 +153,18 @@ export default function Page() {
                     const wrapperRect = wrapperComponent.getBoundingClientRect()
                     const contentRect = contentComponent.getBoundingClientRect()
 
-                    // Target scale
                     const scale = 2
-
-                    // Pin relative coords (0-1) -> Rendered Px (relative to content)
-                    // The contentComponent IS the scalable area.
-                    // The pin is at pin.x * contentRect.width, pin.y * contentRect.height
-                    // logic: -x * scale + wrapper/2
-
-                    // But wait, contentRect includes current scale.
-                    // We need unscaled dims.
                     const unscaledWidth = contentRect.width / transformRef.current.instance.transformState.scale
                     const unscaledHeight = contentRect.height / transformRef.current.instance.transformState.scale
 
                     const targetX = pin.x * unscaledWidth
                     const targetY = pin.y * unscaledHeight
 
-                    // Center in wrapper
                     const x = (wrapperRect.width / 2) - (targetX * scale)
                     const y = (wrapperRect.height / 2) - (targetY * scale)
 
                     transformRef.current.setTransform(x, y, scale, 500)
-                    setSelectedPin(pin) // Also open the detail view
+                    setSelectedPin(pin)
                 }, 500)
             }
         }
@@ -323,5 +273,13 @@ export default function Page() {
                 />
             )}
         </main>
+    )
+}
+
+export default function Page() {
+    return (
+        <Suspense fallback={<div>Loading poster...</div>}>
+            <PosterBoard />
+        </Suspense>
     )
 }
