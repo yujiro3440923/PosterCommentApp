@@ -111,7 +111,11 @@ function PosterBoard() {
         loadData()
         const channel = supabase.channel('pins_updates')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pins' }, (payload) => {
-                setPins((prev) => [...prev, payload.new as Pin])
+                const newPin = payload.new as Pin
+                setPins((prev) => {
+                    if (prev.some(p => p.id === newPin.id)) return prev
+                    return [...prev, newPin]
+                })
             })
             .subscribe()
 
@@ -161,14 +165,18 @@ function PosterBoard() {
         setIsSubmitting(true)
 
         try {
-            const { error } = await supabase.from('pins').insert({
+            const { data, error } = await supabase.from('pins').insert({
                 x: pendingLoc.x,
                 y: pendingLoc.y,
                 author_name: author || 'Anonymous',
                 body,
-            })
+            }).select().single()
 
             if (error) throw error
+
+            if (data) {
+                setPins(prev => [...prev, data as Pin])
+            }
 
             setCooldown(true)
             setTimeout(() => setCooldown(false), 10000)

@@ -31,7 +31,11 @@ export function PinDetail({ pin, onClose, onDelete }: PinDetailProps) {
         // Subscribe to new replies
         const channel = supabase.channel(`replies:${pin.id}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'replies', filter: `pin_id=eq.${pin.id}` }, (payload) => {
-                setReplies(prev => [...prev, payload.new as Reply])
+                const newReply = payload.new as Reply
+                setReplies(prev => {
+                    if (prev.some(r => r.id === newReply.id)) return prev
+                    return [...prev, newReply]
+                })
             })
             .subscribe()
 
@@ -43,16 +47,17 @@ export function PinDetail({ pin, onClose, onDelete }: PinDetailProps) {
         if (!newReply.trim()) return
         setIsSubmitting(true)
 
-        const { error } = await supabase.from('replies').insert({
+        const { data, error } = await supabase.from('replies').insert({
             pin_id: pin.id,
             author_name: replyAuthor || 'Anonymous',
             body: newReply
-        })
+        }).select().single()
 
         if (error) {
             alert('Failed to reply')
             console.error(error)
-        } else {
+        } else if (data) {
+            setReplies(prev => [...prev, data as Reply])
             setNewReply('')
         }
         setIsSubmitting(false)
