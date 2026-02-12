@@ -234,16 +234,6 @@ function PosterBoard() {
                     List
                 </button>
 
-                <button
-                    onClick={() => setShowPins(!showPins)}
-                    className="btn"
-                    style={{ background: 'white', color: 'black', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
-                    title={showPins ? "Hide Pins" : "Show Pins"}
-                >
-                    {showPins ? <Eye size={20} style={{ marginRight: 8 }} /> : <EyeOff size={20} style={{ marginRight: 8 }} />}
-                    {showPins ? "Hide" : "Show"}
-                </button>
-
                 <label className="btn" style={{ background: 'white', color: 'black', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', cursor: isUploading ? 'wait' : 'pointer', opacity: isUploading ? 0.7 : 1 }}>
                     <span onClick={(e) => {
                         e.preventDefault()
@@ -270,6 +260,23 @@ function PosterBoard() {
                         Team Mode
                     </div>
                 )}
+            </div>
+
+            <div style={{ position: 'absolute', bottom: 30, left: 30, zIndex: 50 }}>
+                <button
+                    className="btn"
+                    style={{
+                        width: 60, height: 60, borderRadius: '50%',
+                        background: 'white', color: 'black',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                        fontSize: '1.5rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                    onClick={() => setShowPins(!showPins)}
+                    title={showPins ? "Hide Pins" : "Show Pins"}
+                >
+                    {showPins ? <Eye size={28} /> : <EyeOff size={28} />}
+                </button>
             </div>
 
             <div style={{ position: 'absolute', bottom: 30, right: 30, zIndex: 50 }}>
